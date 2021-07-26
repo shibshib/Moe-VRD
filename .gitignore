@@ -4,3 +4,6 @@ checkpoints/*
 Charades_v1_rgb.tar
 Charades.zipi
 wandb/*
+
+__pycache__/*
+*.dl
