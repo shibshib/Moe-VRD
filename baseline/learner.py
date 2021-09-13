@@ -16,6 +16,7 @@ import common
 from .feature import extract_object_feature, extract_relation_feature
 from .model import IndependentClassifier, CascadeClassifier, IterativeClassifier
 from .misc import FocalLoss, binary_focal_loss
+from .moe import MoE
 
 
 class TrainDataset(Dataset):
@@ -423,10 +424,14 @@ def train(raw_dataset, split, use_cuda=False, **param):
             model = IterativeClassifier(**param)
     else:
         raise ValueError(param['model']['name'])
-    print(model)
-    model.apply(_init_weights)
+
+    ## ISSUE: right now all experts are initialized with the same weights.
     if use_cuda:
         model.cuda()
+    model = MoE(model, 6156, 256, k = 4, object_num=param['object_num']+1)
+    model.apply(_init_weights)
+    print(model)
+
     visual_parameters = []
     preferential_parameters = []
     for name, p in model.named_parameters():
@@ -435,6 +440,7 @@ def train(raw_dataset, split, use_cuda=False, **param):
                 preferential_parameters.append(p)
             else:
                 visual_parameters.append(p)
+
     visual_optim = optim.AdamW(visual_parameters, lr=param['training_lr'], weight_decay=param['training_weight_decay'])
     if len(preferential_parameters) > 0:
         preferential_optim = optim.AdamW(preferential_parameters, lr=param['training_lr'], weight_decay=param['model']['weight_decay'])
@@ -461,11 +467,12 @@ def train(raw_dataset, split, use_cuda=False, **param):
             visual_optim.zero_grad()
             if len(preferential_parameters) > 0:
                 preferential_optim.zero_grad()
-            s_score, o_score, p_score = model(sf, of, ppf, pvf, gt_s=s, gt_o=o, gt_p_vec=p_vec)
+            
+            s_score, o_score, p_score, moe_loss = model(sf, of, ppf, pvf, gt_s=s, gt_o=o, gt_p_vec=p_vec)
             s_loss = focal_loss(s_score, s)
             o_loss = focal_loss(o_score, o)
             p_loss = binary_focal_loss(p_score, p_vec, param['training_focal_gamma'])
-            total_loss = s_loss+o_loss+p_loss
+            total_loss = s_loss+o_loss+p_loss+moe_loss
             total_loss.backward()
             visual_optim.step()
             if len(preferential_parameters) > 0:

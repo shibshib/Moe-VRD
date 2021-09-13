@@ -14,6 +14,7 @@ from common import Trajectory, VideoRelation
 from video_object_detection.object_tracklet_proposal import get_object_tracklets
 from .feature import extract_object_feature, extract_relation_feature
 from .model import IndependentClassifier, CascadeClassifier, IterativeClassifier
+from .moe import MoE
 
 
 class TestDataset(Dataset):
@@ -145,6 +146,8 @@ def predict(raw_dataset, split, use_cuda=False, output_json=True, **param):
         model = IterativeClassifier(**param)
     else:
         raise ValueError(param['model']['name'])
+
+    model = MoE(model, 6156, 256, k = 4, object_num=param['object_num']+1)
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, location: storage))
     model.infer_zero_shot_preference(strategy=param['model'].get('zero_shot_preference', 'none'))
     if use_cuda:

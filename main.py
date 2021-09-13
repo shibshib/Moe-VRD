@@ -70,6 +70,7 @@ def eval_relation_segments(dataset, param, predictor, use_cuda=False, no_cache=F
 
 def detect(dataset, param, predictor, use_cuda=False, no_cache=False, n_workers=12):
     res_path = os.path.join(common.get_model_path(param['exp_id'], param['dataset']), 'relation_segments.pkl')
+    print("[info] res path: {}".format(res_path))
     if not no_cache and os.path.exists(res_path):
         with open(res_path, 'rb') as fin:
             _data = pickle.load(fin)

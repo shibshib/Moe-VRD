@@ -1,0 +1,24 @@
+Train size 64:
+[setting] overall
+        detection mean AP:      0.2924
+        detection recall@50:    0.1936
+        detection recall@100:   0.2273
+        tagging precision@1:    0.6650
+        tagging precision@5:    0.5220
+        tagging precision@10:   0.3960
+[setting] zero-shot
+        detection mean AP:      0.0120
+        detection recall@50:    0.0231
+        detection recall@100:   0.0231
+        tagging precision@1:    0.1096
+        tagging precision@5:    0.0521
+        tagging precision@10:   0.0356
+[setting] generalized zero-shot
+        detection mean AP:      0.0014
+        detection recall@50:    0.0185
+        detection recall@100:   0.0231
+        tagging precision@1:    0.0000
+        tagging precision@5:    0.0027
+        tagging precision@10:   0.0082
+
+
