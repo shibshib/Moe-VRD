@@ -11,3 +11,14 @@ compute_overlap.c
 config/trial
 .ipynb_checkpoints/
 *.ipynb
+
+Charades/*
+Charades_v1_rgb/*
+checkpoints/*
+Charades_v1_rgb.tar
+Charades.zipi
+wandb/*
+
+__pycache__/*
+*.dl
+*.torch
