@@ -12,6 +12,34 @@ import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
 import numpy as np
+import torch.nn.functional as F
+class SOCombinationNet(nn.Module):
+
+    def __init__(self):
+        super(SOCombinationNet, self).__init__()
+        self.fc1 = nn.Linear(36, 72).cuda()  
+        self.fc2 = nn.Linear(72, 144).cuda()
+        self.fc3 = nn.Linear(144, 36).cuda()
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return x
+
+class PCombinationNet(nn.Module):
+
+    def __init__(self):
+        super(PCombinationNet, self).__init__()
+        self.fc1 = nn.Linear(132, 132).cuda()  
+        self.fc2 = nn.Linear(132, 264).cuda()
+        self.fc3 = nn.Linear(264, 132).cuda()
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return x
 
 class SparseDispatcher(object):
     """Helper for implementing a mixture of experts.
@@ -54,13 +82,20 @@ class SparseDispatcher(object):
         sorted_experts, index_sorted_experts = torch.nonzero(gates).sort(0)
         # drop indices
         _, self._expert_index = sorted_experts.split(1, dim=1)
+
         # get according batch index for each expert
-        self._batch_index = sorted_experts[index_sorted_experts[:, 1],0]
+        self._batch_index = sorted_experts[index_sorted_experts[:, 0],0]
         # calculate num samples that each expert gets
         self._part_sizes = list((gates > 0).sum(0).cpu().numpy())
         # expand gates to match with self._batch_index
         gates_exp = gates[self._batch_index.flatten()]
         self._nonzero_gates = torch.gather(gates_exp, 1, self._expert_index)
+
+        self.so_combination = SOCombinationNet()
+        self.p_combination = PCombinationNet()
+
+
+        #self.fc1 = nn.Linear(16 * 5 * 5, 120)  # 5*5 from image dimension
 
     def dispatch(self, sf, of, ppf, pvf, gt_s=None, gt_o=None, gt_p_vec=None):
         """Create one input Tensor for each expert.
@@ -75,20 +110,19 @@ class SparseDispatcher(object):
 
         # assigns samples to experts whose gate is nonzero
         # expand according to batch index so we can just split by _part_sizes
-
-        sf_exp = sf[self._batch_index].squeeze(1)
-        of_exp = of[self._batch_index].squeeze(1)
-        ppf_exp = ppf[self._batch_index].squeeze(1)
-        pvf_exp = pvf[self._batch_index].squeeze(1)
+        sf_exp = sf[self._batch_index].squeeze(0)
+        of_exp = of[self._batch_index].squeeze(0)
+        ppf_exp = ppf[self._batch_index].squeeze(0)
+        pvf_exp = pvf[self._batch_index].squeeze(0)
 
         gt_s_split = None
         gt_o_split = None
         gt_p_vec_split = None
-        
+
         if gt_s != None:
           gt_s_exp = gt_s[self._batch_index].squeeze(0)
           gt_s_split = torch.split(gt_s_exp, self._part_sizes, dim=0)
-        
+
         if gt_o != None:
           gt_o_exp = gt_o[self._batch_index].squeeze(0)
           gt_o_split = torch.split(gt_o_exp, self._part_sizes, dim=0)
@@ -96,7 +130,7 @@ class SparseDispatcher(object):
         if gt_p_vec != None:
           gt_p_vec = gt_p_vec[self._batch_index].squeeze(0)
           gt_p_vec_split = torch.split(gt_p_vec, self._part_sizes, dim=0)
-        
+
 
         return torch.split(sf_exp, self._part_sizes, dim=0), \
                 torch.split(of_exp, self._part_sizes, dim=0), \
@@ -104,10 +138,10 @@ class SparseDispatcher(object):
                 torch.split(pvf_exp, self._part_sizes, dim=0), \
                 gt_s_split, \
                 gt_o_split,  \
-                gt_p_vec_split 
+                gt_p_vec_split
 
 
-    def combine(self, expert_out, multiply_by_gates=True):
+    def combine(self, expert_out, multiply_by_gates=False):
         """Sum together the expert output, weighted by the gates.
         The slice corresponding to a particular batch element `b` is computed
         as the sum over all experts `i` of the expert output, weighted by the
@@ -121,32 +155,50 @@ class SparseDispatcher(object):
           a `Tensor` with shape `[batch_size, <extra_output_dims>]`.
         """
 
-        # Each expert outputs [s_score, o_score, p_score] and hence we 
+        # Each expert outputs [s_score, o_score, p_score] and hence we
         # first need to extract the output for each score.
         # once we have this, we can start combining the outputs.
-
+        
+        # Len(expert_out) == num_experts
         expert_s_out = [e[0] for e in expert_out]
         expert_o_out = [e[1] for e in expert_out]
         expert_p_out = [e[2] for e in expert_out]
-        
+
         # apply exp to expert outputs, so we are not longer in log space
         stitched_s_score = torch.cat(expert_s_out, 0).exp()
         stitched_o_score = torch.cat(expert_o_out, 0).exp()
         stitched_p_score = torch.cat(expert_p_out, 0).exp()
+
+
+        # s_score = self.so_combination(stitched_s_score)
+        # o_score = self.so_combination(stitched_o_score)
+        # p_score = self.p_combination(stitched_p_score)
+
+        # return s_score, o_score, p_score
+
+
+        if len(expert_out[0]) > 3:
+          expert_pairs_out = [e[3] for e in expert_out]
+          stitched_pairs = torch.cat(expert_pairs_out, 0).exp()
+          return self.combine_expert_output(stitched_s_score, expert_s_out, multiply_by_gates=multiply_by_gates), \
+               self.combine_expert_output(stitched_o_score, expert_o_out, multiply_by_gates=multiply_by_gates), \
+               self.combine_expert_output(stitched_p_score, expert_p_out, multiply_by_gates=multiply_by_gates), \
+               self.combine_expert_output(stitched_pairs, expert_pairs_out, multiply_by_gates=multiply_by_gates)
 
         return self.combine_expert_output(stitched_s_score, expert_s_out, multiply_by_gates=multiply_by_gates), \
                self.combine_expert_output(stitched_o_score, expert_o_out, multiply_by_gates=multiply_by_gates), \
                self.combine_expert_output(stitched_p_score, expert_p_out, multiply_by_gates=multiply_by_gates)
 
 
-
     def combine_expert_output(self, stitched, expert_out, multiply_by_gates=True):
         if multiply_by_gates:
             stitched = stitched.mul(self._nonzero_gates)
-
+        
+        #import pdb; pdb.set_trace()
         zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True).to(self.device)
         # combine samples that have been processed by the same k experts
         combined = zeros.index_add(0, self._batch_index, stitched.float())
+
         # add eps to all zero values in order to avoid nans when going back to log space
         combined[combined == 0] = np.finfo(float).eps
         # back to log space
@@ -165,7 +217,7 @@ class SparseDispatcher(object):
 
 
 
-class MoE(nn.Module):
+class IterativeMoE(nn.Module):
 
     """Call a Sparsely gated mixture of experts layer with 1-layer Feed-Forward networks as experts.
     Args:
@@ -177,17 +229,30 @@ class MoE(nn.Module):
     k: an integer - how many experts to use for each batch element
     """
 
-    def __init__(self, model, input_size, num_experts, noisy_gating=True, k=4, object_num=None):
-        super(MoE, self).__init__()
-        self.object_num = object_num
+    def __init__(self, expert, noisy_gating=True, training=True, **param):
+        super(IterativeMoE, self).__init__()
         self.noisy_gating = noisy_gating
-        self.num_experts = num_experts
-        self.k = k
+        self.num_experts = param['num_experts']
+        input_size = param['moe_input_size']
+        self.inference_topk = param['inference_topk']
+        self.object_num = param['object_num']
+
+        self.utilized_experts = torch.zeros(self.num_experts, 1)
+
+        self.predicate_num = param['predicate_num']
+        self.use_gt_label = param['training_use_gt_label']
+
+
+        self.k = param['topk_training']
+        if not training:
+          print("[info] Chain is in test mode")
+          self.k = param['topk_testing']
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # instantiate experts
-        self.experts = nn.ModuleList([model for _ in range(self.num_experts)])
-        self.w_gate = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True).to(self.device)
-        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True).to(self.device)
+        self.experts = nn.ModuleList([expert for _ in range(self.num_experts)])
+        self.w_gate = nn.Parameter(torch.zeros(input_size, self.num_experts), requires_grad=True).to(self.device)
+        self.w_noise = nn.Parameter(torch.zeros(input_size, self.num_experts), requires_grad=True).to(self.device)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(1)
@@ -269,9 +334,8 @@ class MoE(nn.Module):
             load: a Tensor with shape [num_experts]
         """
 
-        # First concatenate all inputs along dim 1, so that the total size should be about [395, input_size]
-        # This is a temporary measure to use the gating function as is, we will be playing with these values later.
-        x = torch.cat((sf, of, ppf, pvf), 1)
+        # TODO (Check for errors). For now, took off the concatination of all inputs, only kept one of the inputs as that's really all that's needed here. 
+        x = sf   #torch.cat((sf, of, ppf, pvf), 0)
         clean_logits = x @ self.w_gate
         if self.noisy_gating:
             raw_noise_stddev = x @ self.w_noise
@@ -286,6 +350,7 @@ class MoE(nn.Module):
         top_k_logits = top_logits[:, :self.k]
         top_k_indices = top_indices[:, :self.k]
         top_k_gates = self.softmax(top_k_logits)
+
 
         zeros = torch.zeros_like(logits, requires_grad=True)
         gates = zeros.scatter(1, top_k_indices, top_k_gates)
@@ -302,7 +367,7 @@ class MoE(nn.Module):
         """Args:
         x: tensor shape [batch_size, input_size]
         train: a boolean scalar.
-        loss_coef: a scalar - multiplier on load-balancing losses
+        loss_coef: a scaslar - multiplier on load-balancing losses
 
         Returns:
         y: a tensor with shape [batch_size, output_size].
@@ -311,47 +376,61 @@ class MoE(nn.Module):
         encourages all experts to be approximately equally used across a batch.
         """
         gates, load = self.noisy_top_k_gating(sf, of, ppf, pvf, train)
+        topk_experts = torch.topk(gates.sum(0), self.k).indices
         # calculate importance loss
-        importance = gates.sum(0)
+        importance = gates.sum(0).to(self.device)
         loss = self.cv_squared(importance) + self.cv_squared(load)
         loss *= loss_coef
+
 
         dispatcher = SparseDispatcher(self.num_experts, gates)
         sf_inputs, of_inputs, ppf_inputs, pvf_inputs, gt_s_inputs, gt_o_inputs, gt_p_vec_inputs = dispatcher.dispatch(sf, of, ppf, pvf, gt_s=gt_s, gt_o=gt_o, gt_p_vec=gt_p_vec)
         gates = dispatcher.expert_to_gates()
-        expert_outputs = [self.experts[i](sf_inputs[i], of_inputs[i], ppf_inputs[i], pvf_inputs[i], gt_s_inputs[i], gt_o_inputs[i], gt_p_vec_inputs[i]) for i in range(self.num_experts)]
+
+        expert_outputs = [self.experts[i].forward(sf_inputs[i], of_inputs[i], ppf_inputs[i], pvf_inputs[i], gt_s_inputs[i], gt_o_inputs[i], gt_p_vec_inputs[i]) for i in range(self.num_experts)]
+          
         s_score, o_score, p_score = dispatcher.combine(expert_outputs)
-        
-        return s_score, o_score, p_score, loss
-    
-    def infer_zero_shot_preference(self, strategy=None):
-        pass
-    
-    def inference(self, sf, of, ppf, pvf):
-        gates, _ = self.noisy_top_k_gating(sf, of, ppf, pvf, train=False)
+
+        # Let's run this thru a FF NN
+        # s_score = dispatcher.so_combination(s_score)
+        # o_score = dispatcher.so_combination(o_score)
+        # p_score = dispatcher.p_combination(p_score)
+
+        return s_score, o_score, p_score, loss.to(self.device)
+
+    def predict(self, pairs, inp_sf, inp_of, inp_ppf, inp_pvf, trans_mat=None,
+            inference_steps=3, inference_problistic=True,
+            inference_object_conf_thres=0.7, inference_predicate_conf_thres=0.7):
+
+        gates, load = self.noisy_top_k_gating(inp_sf, inp_of, inp_ppf, inp_pvf, train=False)
         dispatcher = SparseDispatcher(self.num_experts, gates)
-
-        sf_inputs, of_inputs, ppf_inputs, pvf_inputs, _, _ , _ = dispatcher.dispatch(sf, of, ppf, pvf, gt_s=None, gt_o=None, gt_p_vec=None)
+        sf_inputs, of_inputs, ppf_inputs, pvf_inputs, gt_s_inputs, gt_o_inputs, gt_p_vec_inputs = dispatcher.dispatch(inp_sf, inp_of, inp_ppf, inp_pvf)
         gates = dispatcher.expert_to_gates()
-        expert_outputs = [self.experts[i].inference(sf_inputs[i], of_inputs[i], ppf_inputs[i], pvf_inputs[i]) for i in range(self.num_experts)]
-        s_prob, o_prob, p_prob = dispatcher.combine(expert_outputs) 
+        # TODO: We are ignoring trans_mat here if it doesn't match up with our init probabilities.
+        expert_outputs  = [self.experts[i].predict(pairs, sf_inputs[i], of_inputs[i], ppf_inputs[i], pvf_inputs[i],
+                trans_mat=trans_mat,
+                inference_steps=inference_steps,
+                inference_problistic=inference_problistic,
+                inference_object_conf_thres=inference_object_conf_thres,
+                inference_predicate_conf_thres=inference_predicate_conf_thres) for i in range(self.num_experts) if dispatcher._part_sizes[i] > 0]
+        
+        s_prob, o_prob, p_prob = dispatcher.combine(expert_outputs)
 
-        return s_prob, o_prob, p_prob
-
-    def predict(self, pairs, sf, of, ppf, pvf, trans_mat=None,
-            inference_steps=2, inference_problistic=False,
-            inference_object_conf_thres=0.1, inference_predicate_conf_thres=0.05):
-
-        s_prob, o_prob, p_prob = self.inference(sf, of, ppf, pvf)
+        # Let's run this thru a FF NN
+        # s_prob = dispatcher.so_combination(s_prob)
+        # o_prob = dispatcher.so_combination(o_prob)
+        # p_prob = dispatcher.p_combination(p_prob)
 
         obj_background_id = self.object_num-1
         s_max_idx = torch.argmax(s_prob, 1)
         o_max_idx = torch.argmax(o_prob, 1)
         valid_pair = (s_max_idx!=obj_background_id) & (o_max_idx!=obj_background_id)
+        
         pairs = pairs[valid_pair]
         s_prob = s_prob[valid_pair, :-1]
         o_prob = o_prob[valid_pair, :-1]
         p_prob = p_prob[valid_pair]
+
 
         pairs = pairs.cpu().detach().numpy()
         s_prob = s_prob.cpu().detach().numpy()
@@ -363,6 +442,7 @@ class MoE(nn.Module):
             top_s_inds = np.where(s_prob[pair_id]>inference_object_conf_thres)[0]
             top_p_inds = np.where(p_prob[pair_id]>inference_predicate_conf_thres)[0]
             top_o_inds = np.where(o_prob[pair_id]>inference_object_conf_thres)[0]
+
             for s_class_id, p_class_id, o_class_id in product(top_s_inds, top_p_inds, top_o_inds):
                 s_score = s_prob[pair_id, s_class_id]
                 p_score = p_prob[pair_id, p_class_id]

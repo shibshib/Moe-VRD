@@ -10,13 +10,14 @@ import numpy as np
 from tqdm import tqdm
 import torch
 from torch import nn, optim
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.utils.data import Dataset, DataLoader, get_worker_info
 
 import common
 from .feature import extract_object_feature, extract_relation_feature
 from .model import IndependentClassifier, CascadeClassifier, IterativeClassifier
 from .misc import FocalLoss, binary_focal_loss
-from .moe import MoE
+from .moe import IterativeMoE
 
 
 class TrainDataset(Dataset):
@@ -428,10 +429,12 @@ def train(raw_dataset, split, use_cuda=False, **param):
     ## ISSUE: right now all experts are initialized with the same weights.
     if use_cuda:
         model.cuda()
-    model = MoE(model, 6156, 256, k = 4, object_num=param['object_num']+1)
-    model.apply(_init_weights)
-    print(model)
+    
+    model = IterativeMoE(model, training=True, **param)
 
+    for e in model.experts:
+        e.apply(_init_weights)
+    print(model)
     visual_parameters = []
     preferential_parameters = []
     for name, p in model.named_parameters():
@@ -441,7 +444,8 @@ def train(raw_dataset, split, use_cuda=False, **param):
             else:
                 visual_parameters.append(p)
 
-    visual_optim = optim.AdamW(visual_parameters, lr=param['training_lr'], weight_decay=param['training_weight_decay'])
+    visual_optim = optim.AdamW(model.parameters(), lr=param['training_lr'], weight_decay=param['training_weight_decay'])
+    scheduler = CosineAnnealingWarmRestarts(visual_optim, 10)
     if len(preferential_parameters) > 0:
         preferential_optim = optim.AdamW(preferential_parameters, lr=param['training_lr'], weight_decay=param['model']['weight_decay'])
     focal_loss = FocalLoss(gamma=param['training_focal_gamma'])
@@ -453,11 +457,13 @@ def train(raw_dataset, split, use_cuda=False, **param):
         s_losses = []
         p_losses = []
         o_losses = []
+        moe_losses = []
         total_losses = []
         print('\nEpoch {}'.format(ep))
         model.train()
         t_epoch_start = time.time()
         t_iter_start = time.time()
+        iters = len(data_generator)
         for it, data in enumerate(data_generator):
             sf, of, ppf, pvf, s, p_vec, o = data
             if use_cuda:
@@ -472,15 +478,18 @@ def train(raw_dataset, split, use_cuda=False, **param):
             s_loss = focal_loss(s_score, s)
             o_loss = focal_loss(o_score, o)
             p_loss = binary_focal_loss(p_score, p_vec, param['training_focal_gamma'])
+            
             total_loss = s_loss+o_loss+p_loss+moe_loss
             total_loss.backward()
             visual_optim.step()
+            scheduler.step(it + ep / iters)
             if len(preferential_parameters) > 0:
                 preferential_optim.step()
 
             s_losses.append(s_loss.data.item())
             o_losses.append(o_loss.data.item())
             p_losses.append(p_loss.data.item())
+            #moe_losses.append(moe_loss.data.item())
             total_losses.append(total_loss.data.item())
             t_model_end = time.time()
 
@@ -493,7 +502,7 @@ def train(raw_dataset, split, use_cuda=False, **param):
 
         print('-'*120)
         print('Training summary:'.format(ep))
-        print('[info] s_loss: {:.4f}, o_loss: {:.4f}, p_loss: {:.4f}, total: {:.4f}, time: {:.4f}s'.format(
+        print('[info] s_loss: {:.4f}, o_loss: {:.4f}, p_loss: {:.4f},  total: {:.4f}, time: {:.4f}s'.format(
                 np.mean(s_losses), np.mean(o_losses), np.mean(p_losses),
                 np.mean(total_losses), time.time()-t_epoch_start))
         
@@ -512,4 +521,5 @@ def train(raw_dataset, split, use_cuda=False, **param):
             torch.save(model.state_dict(), dump_path)
 
     print('[info] best training loss {:.4f} after {} training epoch'.format(best_loss, best_ep))
+    print('[info] Expert utilization: {} over {} epochs'.format(model.utilized_experts, param['training_max_epoch']+1))
     return param

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
-
+import torch.nn.functional as F
 
 class IndependentClassifier(nn.Module):
     def __init__(self, **param):
@@ -438,9 +438,15 @@ class IterativeClassifier(nn.Module):
         B, _ = inp_sf.size()
         device = inp_sf.device
         if trans_mat is not None:
-            s_init_prob = torch.mm(trans_mat[0], self.last_s_prob)
-            o_init_prob = torch.mm(trans_mat[1], self.last_o_prob)
-            p_init_prob = torch.mm(trans_mat[2], self.last_p_prob)
+            try:
+                s_init_prob = torch.mm(trans_mat[0], self.last_s_prob)
+                o_init_prob = torch.mm(trans_mat[1], self.last_o_prob)
+                p_init_prob = torch.mm(trans_mat[2], self.last_p_prob)
+            except:
+                s_init_prob = torch.zeros(B, self.object_num, device=device)
+                o_init_prob = torch.zeros(B, self.object_num, device=device)
+                p_init_prob = torch.zeros(B, self.predicate_num, device=device)
+            
         else:
             s_init_prob = torch.zeros(B, self.object_num, device=device)
             o_init_prob = torch.zeros(B, self.object_num, device=device)
@@ -454,37 +460,4 @@ class IterativeClassifier(nn.Module):
         self.last_o_prob = o_prob
         self.last_p_prob = p_prob
 
-        obj_background_id = self.object_num-1
-        s_max_idx = torch.argmax(s_prob, 1)
-        o_max_idx = torch.argmax(o_prob, 1)
-        valid_pair = (s_max_idx!=obj_background_id) & (o_max_idx!=obj_background_id)
-        pairs = pairs[valid_pair]
-        s_prob = s_prob[valid_pair, :-1]
-        o_prob = o_prob[valid_pair, :-1]
-        p_prob = p_prob[valid_pair]
-
-        pairs = pairs.cpu().detach().numpy()
-        s_prob = s_prob.cpu().detach().numpy()
-        o_prob = o_prob.cpu().detach().numpy()
-        p_prob = p_prob.cpu().detach().numpy()
-
-        predictions = []
-        for pair_id in range(len(pairs)):
-            top_s_inds = np.where(s_prob[pair_id]>inference_object_conf_thres)[0]
-            top_p_inds = np.where(p_prob[pair_id]>inference_predicate_conf_thres)[0]
-            top_o_inds = np.where(o_prob[pair_id]>inference_object_conf_thres)[0]
-            for s_class_id, p_class_id, o_class_id in product(top_s_inds, top_p_inds, top_o_inds):
-                s_score = s_prob[pair_id, s_class_id]
-                p_score = p_prob[pair_id, p_class_id]
-                o_score = o_prob[pair_id, o_class_id]
-                r_score = s_score*p_score*o_score
-                sub_id, obj_id = pairs[pair_id]
-                predictions.append({
-                    'sub_id': sub_id,
-                    'obj_id': obj_id,
-                    'triplet': (s_class_id, p_class_id,o_class_id),
-                    'score': r_score,
-                    'triplet_scores': (s_score, p_score, o_score)
-                })
-
-        return predictions
+        return s_prob, o_prob, p_prob
