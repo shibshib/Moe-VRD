@@ -1,6 +1,6 @@
 ## Moe-VRD
 
-This is the source code for the Moe-VRD Project as maintained by the VIP lab at the University of Waterloo. This code creates a mixture of experts framework and encapsulates the work done by Shang et al.'s [VidVRD-II](https://xdshang.github.io/assets/pdf/VidVRD-II-preprint.pdf) to a singular expert, which can then be replicated and scaled accordingly. 
+This is the source code for the Moe-VRD Project as maintained by the VIP lab at the University of Waterloo. This code creates a mixture of experts framework and encapsulates the work done by Shang et al.'s [VidVRD-II](https://xdshang.github.io/assets/pdf/VidVRD-II-preprint.pdf) to a singular expert, which can then be used as an expert in the proposed mixture of experts for video relationship detection.
 
 **Note**
 This work is in progress, and as this project is relatively new on Github code-wise there will be lots of changes.
@@ -11,9 +11,11 @@ This work is in progress, and as this project is relatively new on Github code-w
 The setup is very similar to Shang et al.'s code setup:
 
 1. Download [ImageNet-VidVRD dataset](https://xdshang.github.io/docs/imagenet-vidvrd.html) and [VidOR dataset](https://xdshang.github.io/docs/vidor.html). Then, place the data under the same parent folder as this repository.
-```
+
+
 2. Install dependencies (tested with TITAN Xp GPU, Nvidia RTX A6000)
 <!-- Ubuntu 18.04.5 LTS (GNU/Linux 4.15.0-142-generic x86_64); NVIDIA Driver Version: 460.73.01,  -->
+
 ```
 conda create -n moe-vrd -c conda-forge python=3.7 Cython tqdm scipy "h5py>=2.9=mpi*" ffmpeg=3.4 cudatoolkit=10.1 cudnn "pytorch>=1.7.0=cuda101*" "tensorflow>=2.0.0=gpu*"
 conda activate moe-vrd
@@ -33,12 +35,21 @@ python setup.py build_ext --inplace
 2. To obtain object tracklets based on the frame-level proposals, run `python -m video_object_detection.object_tracklet_proposal [imagenet-vidvrd/vidor] [train/test/training/validation]`.
 
 ### Acknowledgement
-This repository is built based on [VidVRD-helper](https://github.com/xdshang/VidVRD-helper) and [VidVRD-II](https://github.com/xdshang/VidVRD-II). If this repo is helpful in your research, you can use the following bibtex to cite their paper:
+This repository is built based on [VidVRD-helper](https://github.com/xdshang/VidVRD-helper) and [VidVRD-II](https://github.com/xdshang/VidVRD-II). If this repo is helpful in your research, you can use the following bibtex to both their paper and our repository:
+
 ```
+@misc{sha2021moe,
+    title={Video Relationship Detection using Mixture of Experts},
+    author={Shaabana, Ala, Fieguth, Paul, Luo, Chong, Lan, Cuiling},
+    journal={https://github.com/shibshib/moe-vrd.git},
+    year={2021}
+}
+
 @inproceedings{shang2021video,
     author={Shang, Xindi and Li, Yicong and Xiao, Junbin and Ji, Wei and Chua, Tat-Seng},
     title={Video Visual Relation Detection via Iterative Inference},
     booktitle={ACM International Conference on Multimedia},
     year={2021}
 }
+
 ```
