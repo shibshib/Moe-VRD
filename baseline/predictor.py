@@ -14,7 +14,7 @@ from common import Trajectory, VideoRelation
 from video_object_detection.object_tracklet_proposal import get_object_tracklets
 from .feature import extract_object_feature, extract_relation_feature
 from .model import IndependentClassifier, CascadeClassifier, IterativeClassifier
-from .moe import MoE
+from .moe import IterativeMoE
 
 
 class TestDataset(Dataset):
@@ -147,9 +147,11 @@ def predict(raw_dataset, split, use_cuda=False, output_json=True, **param):
     else:
         raise ValueError(param['model']['name'])
 
-    model = MoE(model, 6156, 256, k = 4, object_num=param['object_num']+1)
+    model = IterativeMoE(model, training=False, **param)
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, location: storage))
-    model.infer_zero_shot_preference(strategy=param['model'].get('zero_shot_preference', 'none'))
+    for m in model.experts:
+        m.infer_zero_shot_preference(strategy=param['model'].get('zero_shot_preference', 'none'))
+        
     if use_cuda:
         model.cuda()
 
@@ -179,6 +181,7 @@ def predict(raw_dataset, split, use_cuda=False, output_json=True, **param):
                 inference_object_conf_thres=param['inference_object_conf_threshold'],
                 inference_predicate_conf_thres=param['inference_predicate_conf_threshold'])
 
+
         # supression
         model_predictions = sorted(model_predictions, key=lambda r: r['score'], reverse=True)[:param['inference_topk']]
         if param['inference_nms'] < 1:
@@ -189,7 +192,7 @@ def predict(raw_dataset, split, use_cuda=False, output_json=True, **param):
             sub = raw_dataset.get_object_name(r['triplet'][0])
             pred = raw_dataset.get_predicate_name(r['triplet'][1])
             obj = raw_dataset.get_object_name(r['triplet'][2])
-            predictions.append(VideoRelation(sub, pred, obj, tracklets[r['sub_id']], tracklets[r['obj_id']], r['score']))
+            predictions.append(VideoRelation(sub, pred, obj, tracklets[int(r['sub_id'])], tracklets[int(r['obj_id'])], r['score']))
         
         vsig = common.get_segment_signature(*index)
         if output_json:
@@ -215,12 +218,13 @@ def relation_nms(relations, iou, suppress_threshold=0.9, max_n_return=None):
         if len(keep) >= max_n_return:
             break
         triplet = relations[i]['triplet']
-        sub_id, obj_id = relations[i]['sub_id'], relations[i]['obj_id']
+        sub_id, obj_id = int(relations[i]['sub_id']), int(relations[i]['obj_id'])
         new_order = []
+        #import pdb; pdb.set_trace()
         for j in order:
             supress = False
             if triplet == relations[j]['triplet']:
-                sub_id_j, obj_id_j = relations[j]['sub_id'], relations[j]['obj_id']
+                sub_id_j, obj_id_j = int(relations[j]['sub_id']), int(relations[j]['obj_id'])
                 supress = iou[sub_id_j, sub_id]>suppress_threshold and iou[obj_id_j, obj_id]>suppress_threshold
             if not supress:
                 new_order.append(j)

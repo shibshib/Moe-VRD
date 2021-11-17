@@ -39,5 +39,8 @@
     "association_linkage_threshold": 0.5,
     "association_nms": 1.0,
     "association_topk": 200,
-    "association_n_workers": 8
+    "association_n_workers": 8,
+    "num_experts": 1,
+    "topk_training": 1,
+    "topk_testing": 1
 }

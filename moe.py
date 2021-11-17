@@ -48,7 +48,6 @@ class SparseDispatcher(object):
         """Create a SparseDispatcher."""
         self._gates = gates
         self._num_experts = num_experts
-        import pdb; pdb.set_trace()
         # sort experts
         sorted_experts, index_sorted_experts = torch.nonzero(gates).sort(0)
         # drop indices

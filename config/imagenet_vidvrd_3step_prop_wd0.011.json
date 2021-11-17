@@ -7,10 +7,10 @@
         "name": "iterative_classifier",
         "hidden_dim": 768,
         "dropout": 0.2,
-        "use_knowledge": true,
-        "smoothing": 100,
-        "zero_shot_preference": "none",
-        "dump_file": "weights_ep50.t7"
+        "use_knowledge": false,
+        "weight_decay": 0.01,
+        "zero_shot_preference": "global_median",
+        "dump_file": "weights_best.t7"
     },
     "training_poi_threshold": 0.9,
     "training_negative_poi_threshold": 0.5,
@@ -19,10 +19,10 @@
     "training_use_gt_label": true,
     "training_use_gt_tracklet": true,
     "training_focal_gamma": 2,
-    "training_batch_size": 64,
+    "training_batch_size": 12,
     "training_max_cand_per_sample": 64,
-    "training_lr": 0.001,
-    "training_weight_decay": 0.0005,
+    "training_lr": 0.0001,
+    "training_weight_decay": 0.5,
     "training_max_epoch": 50,
     "training_display_freq": 1,
     "training_save_freq": 10,
@@ -40,8 +40,9 @@
     "association_nms": 1.0,
     "association_topk": 200,
     "association_n_workers": 12,
-    "moe_input_size":  6156,
-    "num_experts": 16,
-    "topk_training": 4,
+    "moe_input_size":  1536,
+    "num_experts": 5,
+    "topk_training": 1,
     "topk_testing": 2
 }
+

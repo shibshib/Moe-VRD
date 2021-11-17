@@ -128,3 +128,10 @@
                 tagging precision@1:	0.0137
                 tagging precision@5:	0.0164
                 tagging precision@10:	0.0205
+
+
+
+- Results are almost as good as or worse than original paper. This could be due to the averaging nature of MoE, where if a very well performing expert exists, it will be dilluted
+by the averaging of the other experts that are not as well performing.
+    - This hypothesis needs more testing first.
+    
