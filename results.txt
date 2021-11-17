@@ -1,0 +1,136 @@
+Train size 64:
+[setting] overall
+        detection mean AP:      0.2924
+        detection recall@50:    0.1936
+        detection recall@100:   0.2273
+        tagging precision@1:    0.6650
+        tagging precision@5:    0.5220
+        tagging precision@10:   0.3960
+[setting] zero-shot
+        detection mean AP:      0.0120
+        detection recall@50:    0.0231
+        detection recall@100:   0.0231
+        tagging precision@1:    0.1096
+        tagging precision@5:    0.0521
+        tagging precision@10:   0.0356
+[setting] generalized zero-shot
+        detection mean AP:      0.0014
+        detection recall@50:    0.0185
+        detection recall@100:   0.0231
+        tagging precision@1:    0.0000
+        tagging precision@5:    0.0027
+        tagging precision@10:   0.0082
+
+
+Mean/Std Scores over 1 Runs on 50 epochs, num_experts = 1, k = 1
+========================================================================================================================
+[setting] overall
+        detection mean AP:      0.2939 ± 0.0000
+        detection recall@50:    0.1965 ± 0.0000
+        detection recall@100:   0.2271 ± 0.0000
+        tagging precision@1:    0.6850 ± 0.0000
+        tagging precision@5:    0.5470 ± 0.0000
+        tagging precision@10:   0.3950 ± 0.0000
+[setting] zero-shot
+        detection mean AP:      0.0209 ± 0.0000
+        detection recall@50:    0.0231 ± 0.0000
+        detection recall@100:   0.0231 ± 0.0000
+        tagging precision@1:    0.1781 ± 0.0000
+        tagging precision@5:    0.0740 ± 0.0000
+        tagging precision@10:   0.0452 ± 0.0000
+[setting] generalized zero-shot
+        detection mean AP:      0.0022 ± 0.0000
+        detection recall@50:    0.0162 ± 0.0000
+        detection recall@100:   0.0185 ± 0.0000
+        tagging precision@1:    0.0137 ± 0.0000
+        tagging precision@5:    0.0110 ± 0.0000
+        tagging precision@10:   0.0123 ± 0.0000
+
+
+
+
+Mean/Std Scores over 1 Runs (10 experts, k = 2 training, k = 2 testing)
+========================================================================================================================
+[setting] overall
+        detection mean AP:      0.2422 ± 0.0000
+        detection recall@50:    0.1317 ± 0.0000
+        detection recall@100:   0.1646 ± 0.0000
+        tagging precision@1:    0.6150 ± 0.0000
+        tagging precision@5:    0.4530 ± 0.0000
+        tagging precision@10:   0.3485 ± 0.0000
+[setting] zero-shot
+        detection mean AP:      0.0410 ± 0.0000
+        detection recall@50:    0.0394 ± 0.0000
+        detection recall@100:   0.0394 ± 0.0000
+        tagging precision@1:    0.2466 ± 0.0000
+        tagging precision@5:    0.1534 ± 0.0000
+        tagging precision@10:   0.0904 ± 0.0000
+[setting] generalized zero-shot
+        detection mean AP:      0.0068 ± 0.0000
+        detection recall@50:    0.0278 ± 0.0000
+        detection recall@100:   0.0370 ± 0.0000
+        tagging precision@1:    0.0274 ± 0.0000
+        tagging precision@5:    0.0137 ± 0.0000
+        tagging precision@10:   0.0151 ± 0.0000
+
+Mean/Std Scores over 1 Runs
+========================================================================================================================
+[setting] overall
+        detection mean AP:      0.2555 ± 0.0000
+        detection recall@50:    0.1533 ± 0.0000
+        detection recall@100:   0.1789 ± 0.0000
+        tagging precision@1:    0.6800 ± 0.0000
+        tagging precision@5:    0.4860 ± 0.0000
+        tagging precision@10:   0.3555 ± 0.0000
+[setting] zero-shot
+        detection mean AP:      0.0162 ± 0.0000
+        detection recall@50:    0.0370 ± 0.0000
+        detection recall@100:   0.0370 ± 0.0000
+        tagging precision@1:    0.1507 ± 0.0000
+        tagging precision@5:    0.0685 ± 0.0000
+        tagging precision@10:   0.0411 ± 0.0000
+[setting] generalized zero-shot
+        detection mean AP:      0.0067 ± 0.0000
+        detection recall@50:    0.0324 ± 0.0000
+        detection recall@100:   0.0347 ± 0.0000
+        tagging precision@1:    0.0137 ± 0.0000
+        tagging precision@5:    0.0247 ± 0.0000
+        tagging precision@10:   0.0233 ± 0.0000
+
+
+K = 1
+-> obj_background_id = self.object_num-1
+(Pdb) s_prob.size()
+torch.Size([9, 36])
+(Pdb) o_prob.size()
+torch.Size([9, 36])
+(Pdb) p_prob.size()
+torch.Size([9, 132])
+
+
+
+===== res =======
+
+Mean/Std Scores over 1 Runs
+========================================================================================================================
+[setting] overall
+        detection mean AP:      0.2721 ± 0.0000
+        detection recall@50:    0.1665 ± 0.0000
+        detection recall@100:   0.1988 ± 0.0000
+        tagging precision@1:    0.6500 ± 0.0000
+        tagging precision@5:    0.4830 ± 0.0000
+        tagging precision@10:   0.3600 ± 0.0000
+[setting] zero-shot
+        detection mean AP:      0.0235 ± 0.0000
+        detection recall@50:    0.0394 ± 0.0000
+        detection recall@100:   0.0394 ± 0.0000
+        tagging precision@1:    0.1781 ± 0.0000
+        tagging precision@5:    0.1041 ± 0.0000
+        tagging precision@10:   0.0603 ± 0.0000
+[setting] generalized zero-shot
+        detection mean AP:      0.0061 ± 0.0000
+        detection recall@50:    0.0347 ± 0.0000
+        detection recall@100:   0.0370 ± 0.0000
+        tagging precision@1:    0.0000 ± 0.0000
+        tagging precision@5:    0.0329 ± 0.0000
+        tagging precision@10:   0.0329 ± 0.0000
