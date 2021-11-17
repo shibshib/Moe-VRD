@@ -3,8 +3,10 @@
 This is the source code for the Moe-VRD Project as maintained by the VIP lab at the University of Waterloo. This code creates a mixture of experts framework and encapsulates the work done by Shang et al.'s [VidVRD-II](https://xdshang.github.io/assets/pdf/VidVRD-II-preprint.pdf) to a singular expert, which can then be replicated and scaled accordingly. 
 
 --
+
 **Note**
 This work is in progress, and as this project is relatively new on Github code-wise there will be lots of changes over time.
+
 --
 
 
